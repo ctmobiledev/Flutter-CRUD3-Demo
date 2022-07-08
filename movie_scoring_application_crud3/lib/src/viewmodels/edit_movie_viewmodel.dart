@@ -1,8 +1,8 @@
 // ignore_for_file: avoid_print
 
 import 'package:flutter/material.dart';
-import 'package:movie_scoring_application_crud3/src/views/edit_movie_page.dart';
 
+import '../views/edit_movie_page.dart';
 import '../models/movie_model.dart';
 import '../models/movie_repository.dart';
 import '../util/constants.dart';

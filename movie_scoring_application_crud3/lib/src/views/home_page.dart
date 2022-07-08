@@ -4,7 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:realm/realm.dart';
 
 import '../util/dialog_helpers.dart';
-import '../viewmodels/home_viewmodel.dart';
 
 import 'about_page.dart';
 import 'edit_movie_page.dart';
@@ -26,8 +25,6 @@ class HomePage extends StatefulWidget {
 }
 
 class HomePageState extends State<HomePage> {
-  //
-  final mainVM = MainViewModel(); // set further down by ChangeNotifyProvider<T>
   //
   LocalConfiguration? config;
 
