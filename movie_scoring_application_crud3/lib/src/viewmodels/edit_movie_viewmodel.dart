@@ -8,7 +8,7 @@ import '../models/movie_repository.dart';
 import '../util/constants.dart';
 import '../util/dialog_helpers.dart';
 
-class EditMovieViewModel extends ChangeNotifier {
+class EditMovieViewModel {
   MovieModel movieModel = MovieModel();
 
   // This cannot be null or blank, or compiler says, "Hey! I don't see that value in the list!"
@@ -114,9 +114,6 @@ class EditMovieViewModel extends ChangeNotifier {
           EditMovieWidgetState.txtMovieTitle.text,
           strMovieGenreSelected,
           EditMovieWidgetState.txtMovieScore.text);
-
-      notifyListeners();
-      //
     } else {
       showErrorMessage(validationResultCode, context);
       successResult = false;
@@ -170,19 +167,16 @@ class EditMovieViewModel extends ChangeNotifier {
     strMovieGenreSelected =
         movieModel.movieGenre.toString(); // for the drop-down button
     EditMovieWidgetState.txtMovieScore.text = movieModel.movieScore.toString();
-    notifyListeners();
   }
 
   void clearInputFields() {
     EditMovieWidgetState.txtMovieTitle.clear();
     EditMovieWidgetState.txtMovieScore.clear();
     // Genre is reset to index 0 each call to "new" item each time the page is opened.
-    notifyListeners();
   }
 
   void updateGenreDropdown(String selectedValue) {
     print(">>> updateGenreDropdown, selectedValue = $selectedValue");
     strMovieGenreSelected = selectedValue;
-    notifyListeners(); //   this may be superfluous since setState() actually saves selected index
   }
 }

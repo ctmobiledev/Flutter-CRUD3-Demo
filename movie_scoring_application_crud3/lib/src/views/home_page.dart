@@ -1,10 +1,10 @@
 // ignore_for_file: avoid_print
 
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import 'package:realm/realm.dart';
 
-import '../viewmodels/main_viewmodel.dart';
+import '../util/dialog_helpers.dart';
+import '../viewmodels/home_viewmodel.dart';
 
 import 'about_page.dart';
 import 'edit_movie_page.dart';
@@ -22,16 +22,16 @@ class HomePage extends StatefulWidget {
   final String title;
 
   @override
-  State<HomePage> createState() => _HomePageState();
+  State<HomePage> createState() => HomePageState();
 }
 
-class _HomePageState extends State<HomePage> {
+class HomePageState extends State<HomePage> {
   //
   final mainVM = MainViewModel(); // set further down by ChangeNotifyProvider<T>
   //
   LocalConfiguration? config;
 
-  Object triggerRedraw = Object();
+  static Object triggerRedraw = Object();
 
   @override
   void initState() {
@@ -54,11 +54,92 @@ class _HomePageState extends State<HomePage> {
     MovieRepository.realmMovies = MovieRepository.realm.all<MovieModel>();
 
     // Comment out these lines to start with a clean database.
-    //MovieRepository.deleteAllMovies();
-    //generateTestData();
+    /////MovieRepository.deleteAllMovies();
+    /////generateTestData();
 
-    mainVM.refreshMovies(context);
+    setState(() {
+      refreshMovies(context);
+    });
   }
+
+  //********************************************************************
+  // These methods could be moved to the viewModel if desired.
+  // But if using setState(), they have to be here within the State
+  // class to be able to call that.
+  //********************************************************************
+
+  Future<void> refreshMovies(BuildContext context) async {
+    print(">>> refreshMovies() fired");
+    print(">>>=====================================================");
+
+    setState(() {
+      MovieRepository.realmMovies = MovieRepository.getMovies();
+    });
+
+    showMessageIfNoEntries(context);
+  }
+
+  void showMessageIfNoEntries(BuildContext context) {
+    Future.delayed(
+        const Duration(seconds: 1), () => checkForEmptyList(context));
+  }
+
+  void checkForEmptyList(BuildContext context) {
+    if (MovieRepository.realmMovies.isEmpty) {
+      DialogHelpers.showAlertDialog("No movies entered.", context);
+    }
+  }
+
+  Future<void> showConfirmDeleteDialog(
+      String msgText, BuildContext buildContext) async {
+    showDialog<String>(
+      // <String> is the data type returned
+      context: buildContext,
+      builder: (BuildContext context) => AlertDialog(
+        title: Text(
+          Constants.dialogAppTitle,
+          style: const TextStyle(fontWeight: FontWeight.bold),
+        ),
+        content: Text(msgText),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context, 'Y');
+            },
+            child: const Text('Yes, Delete All'),
+          ),
+          TextButton(
+            onPressed: () {
+              // Stay
+              Navigator.pop(context, 'N');
+            },
+            child: const Text('No, Cancel'),
+          ),
+        ],
+      ),
+      // don't really use the 'value' passed next to context at this point
+    ).then((value) {
+      print(">>> value is $value");
+      if (value == 'Y') {
+        setState(() {
+          MovieRepository.deleteAllMovies();
+          refreshMovies(context);
+        });
+      }
+    });
+  }
+
+  Future<void> generateTestData() async {
+    print(">>> generateTestData() fired");
+    // a few rows
+    MovieRepository.createMovie("Big", 10, "Comedy");
+    MovieRepository.createMovie("Moonstruck", 10, "Comedy");
+    MovieRepository.createMovie("Broadcast News", 8, "Drama");
+    MovieRepository.createMovie("Ordinary People", 8, "Drama");
+    MovieRepository.createMovie("The Last Word", 7, "Documentary");
+  }
+
+  //********************************************************************
 
   void initDataCallback(Realm localRealm) {
     print(">>> initDataCallback()");
@@ -97,11 +178,13 @@ class _HomePageState extends State<HomePage> {
             if (value == 0) {
               print(">>> New Movie");
               // inx of -1 = New, inx > 0 = Edit
-              Navigator.pushNamed(
-                context,
-                EditMovieWidget.routeName,
-                arguments: EditMovieArgs(-1),
-              ).whenComplete(() => mainVM.refreshMovies(context));
+              setState(() {
+                Navigator.pushNamed(
+                  context,
+                  EditMovieWidget.routeName,
+                  arguments: EditMovieArgs(-1),
+                ).whenComplete(() => refreshMovies(context));
+              });
             } else if (value == 1) {
               print(">>> Settings");
               Navigator.push(
@@ -110,67 +193,62 @@ class _HomePageState extends State<HomePage> {
               );
             } else if (value == 2) {
               print(">>> Clear All Movies");
-              mainVM.showConfirmDeleteDialog(
+              showConfirmDeleteDialog(
                   "This will delete all movie entries. Are you sure?", context);
             } else if (value == 3) {
               print(">>> About");
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const AboutAppWidget()),
-              );
+              setState(() {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                      builder: (context) => const AboutAppWidget()),
+                );
+              });
             }
           }),
         ],
       ),
-      // INSERT ChangeNotifierProvier<SomeViewModelName> HERE
-      body: ChangeNotifierProvider<MainViewModel>(
-          create: (context) => mainVM,
-          child: Consumer<MainViewModel>(builder: (context, mainVM, _) {
-            //
-            // IMPORTANT: MUST RETURN THE *WHOLE* LAYOUT HERE, AFTER 'return'
-            // LET THE 'OUTER' WIDGET FROM THE LAYOUT IMMEDIATELY FOLLOW 'return'
-            //
-            return Center(
-                child: ListView.builder(
-                    key: ValueKey<Object>(triggerRedraw),
-                    itemCount:
-                        MovieRepository.realmMovies.length, // List<Map<...>>
-                    itemBuilder: (context, index) {
-                      return GestureDetector(
-                        child: Material(
-                          color: Colors.blue,
-                          child: InkWell(
-                            onTap: () {
-                              var inx = MovieRepository.realmMovies[index].id;
-                              print(
-                                  ">>> NAVIGATE TO EDIT SCREEN - tapped inx = $inx");
-                              Navigator.pushNamed(
-                                context,
-                                EditMovieWidget.routeName,
-                                arguments: EditMovieArgs(inx!),
-                              ).whenComplete(
-                                  () => mainVM.refreshMovies(context));
-                            },
-                            child: Card(
-                                color: Colors.transparent,
-                                child: SizedBox(
-                                  height: 100.0,
-                                  child: MovieItemWidget(
-                                      MovieRepository.realmMovies[
-                                          index]), // pass just one object
-                                )),
-                          ),
-                        ),
-                      );
-                    }));
-          })),
+      body: Center(
+          child: ListView.builder(
+              key: ValueKey<Object>(triggerRedraw),
+              itemCount: MovieRepository.realmMovies.length, // List<Map<...>>
+              itemBuilder: (context, index) {
+                return GestureDetector(
+                  child: Material(
+                    color: Colors.blue,
+                    child: InkWell(
+                      onTap: () {
+                        var inx = MovieRepository.realmMovies[index].id;
+                        print(
+                            ">>> NAVIGATE TO EDIT SCREEN - tapped inx = $inx");
+                        setState(() {
+                          Navigator.pushNamed(
+                            context,
+                            EditMovieWidget.routeName,
+                            arguments: EditMovieArgs(inx!),
+                          ).whenComplete(() => refreshMovies(context));
+                        });
+                      },
+                      child: Card(
+                          color: Colors.transparent,
+                          child: SizedBox(
+                            height: 100.0,
+                            child: MovieItemWidget(MovieRepository
+                                .realmMovies[index]), // pass just one object
+                          )),
+                    ),
+                  ),
+                );
+              })),
       floatingActionButton: FloatingActionButton(
         onPressed: () {
-          Navigator.pushNamed(
-            context,
-            EditMovieWidget.routeName,
-            arguments: EditMovieArgs(-1),
-          ).whenComplete(() => mainVM.refreshMovies(context));
+          setState(() {
+            Navigator.pushNamed(
+              context,
+              EditMovieWidget.routeName,
+              arguments: EditMovieArgs(-1),
+            ).whenComplete(() => refreshMovies(context));
+          });
           print(">>> New Movie - FAB");
         },
         backgroundColor: Colors.deepPurple,
